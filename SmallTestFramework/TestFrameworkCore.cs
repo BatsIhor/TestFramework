@@ -28,7 +28,7 @@ namespace SmallTestFramework
 
         }
 
-        IEnumerable<Type> GetTypesWithTests(string[] args)
+        private IEnumerable<Type> GetTypesWithTests(string[] args)
         {
             foreach (string file in args)
             {
@@ -43,13 +43,12 @@ namespace SmallTestFramework
                         yield return type;
                     }
                 }
-
             }
         }
 
-        void PrintInfo(IEnumerable<Type> items)
+        private void PrintInfo(IEnumerable<Type> types)
         {
-            foreach (var itemType in items)
+            foreach (var itemType in types)
             {
                 var hasDataContract = Attribute.IsDefined(itemType, typeof(TestClassAttribute));
                 if (hasDataContract)
@@ -71,7 +70,7 @@ namespace SmallTestFramework
             }
         }
 
-        void RunThemAll(IEnumerable<Type> types)
+        private void RunThemAll(IEnumerable<Type> types)
         {
             foreach (var type in types)
             {
@@ -79,21 +78,46 @@ namespace SmallTestFramework
 
                 MethodInfo[] methods = type.GetMethods();
 
+                MethodInfo startMethod = methods.FirstOrDefault(method => Attribute.IsDefined(method, typeof(TestStartAttribute)));
+                MethodInfo stopMethod = methods.FirstOrDefault(method => Attribute.IsDefined(method, typeof(TestStopAttribute)));
+
                 foreach (var method in methods)
                 {
-                    foreach (var methodAttribute in method.GetCustomAttributes(true))
+                    if (Attribute.IsDefined(method, typeof(TestMethodAttribute)))
                     {
-                        if (methodAttribute is TestMethodAttribute)
-                        {
-                            Console.WriteLine("Running test method:" + method.Name);
+                        Console.WriteLine("Running test method:" + method.Name);
 
-                            method.Invoke(obj, new object[] { });
+                        if (startMethod != null)
+                        {
+                            startMethod.Invoke(obj, new object[] { });
+                        }
+
+                        if (Attribute.IsDefined(method, typeof (ExpectedExceptionAttribute)))
+                        {
+                            try
+                            {
+                                method.Invoke(obj, new object[] { });
+                            }
+                            catch (Exception)
+                            {
+                                //If we receive Expected Exception than its ok and we just continue to work, in other case we are rising this ecxeption.
+
+
+                                throw;
+                            }
+                        }
+                        else
+                        {
+                            method.Invoke(obj, new object[] { });                            
+                        }
+
+                        if (stopMethod != null)
+                        {
+                            stopMethod.Invoke(obj, new object[] { });
                         }
                     }
                 }
             }
-
-
         }
     }
 }
