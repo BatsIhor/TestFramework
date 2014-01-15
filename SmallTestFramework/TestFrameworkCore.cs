@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Text;
 using System.Reflection;
@@ -12,11 +13,18 @@ namespace SmallTestFramework
         {
             IEnumerable<Type> types = GetTypesWithTests(args);
 
-            PrintInfo(types);
+            var enumerable = types as Type[] ?? types.ToArray();
 
-            foreach (Type item in types)
+            PrintInfo(enumerable);
+
+            foreach (Type item in enumerable)
             {
+                string assemblyQualifiedName = item.FullName;
+                Console.WriteLine(assemblyQualifiedName);
+
+
             }
+            RunThemAll(enumerable);
 
         }
 
@@ -31,15 +39,12 @@ namespace SmallTestFramework
                     if (Attribute.IsDefined(type, typeof(TestClassAttribute)))
                     {
                         var obj = Activator.CreateInstance(type);
-                        yield return type; 
+                        Console.WriteLine(obj.GetType());
+                        yield return type;
                     }
                 }
 
             }
-
-            //return (from t in Assembly.GetExecutingAssembly().GetTypes()
-            //        where t.BaseType == (typeof(T)) && t.GetConstructor(Type.EmptyTypes) != null
-            //        select (T)Activator.CreateInstance(t)).ToList();
         }
 
         void PrintInfo(IEnumerable<Type> items)
@@ -66,21 +71,24 @@ namespace SmallTestFramework
             }
         }
 
-        void RunThemAll<T>()
+        void RunThemAll(IEnumerable<Type> types)
         {
-            var obj = Activator.CreateInstance<T>();
-
-            //run all the methods that have TestMethod attribute.
-
-            MethodInfo[] methods = typeof(T).GetMethods();
-            foreach (var method in methods)
+            foreach (var type in types)
             {
-                Console.WriteLine("Running test method:" + method.Name);
-                foreach (var methodAttribute in method.GetCustomAttributes(true))
+                object obj = Activator.CreateInstance(type);
+
+                MethodInfo[] methods = type.GetMethods();
+
+                foreach (var method in methods)
                 {
-                    if (methodAttribute is TestMethodAttribute)
+                    foreach (var methodAttribute in method.GetCustomAttributes(true))
                     {
-                        method.Invoke(obj, new object[] { });
+                        if (methodAttribute is TestMethodAttribute)
+                        {
+                            Console.WriteLine("Running test method:" + method.Name);
+
+                            method.Invoke(obj, new object[] { });
+                        }
                     }
                 }
             }
